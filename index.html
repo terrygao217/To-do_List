@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>进阶任务管理器 - TerryGao & Gemini</title>
+    <style>
+        /* --- 🎨 CSS 样式：包含开幕、登录、播放器和 To-Do List 样式 --- */
+        :root {
+            --primary-color: #007bff; /* 蓝色系，专业 */
+            --secondary-color: #dc3545; /* 红色 */
+            --warning-color: #ffc107; /* 黄色用于清除按钮 */
+            --bg-color: #f4f7f6;
+            --card-color: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; 
+        }
+        
+        /* 1. 开幕界面样式 */
+        #splashScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--primary-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 1s ease-out;
+            font-size: 2em;
+        }
+
+        .splash-text {
+            animation: fadeIn 2s ease-in-out forwards;
+            font-weight: 300;
+            text-align: center;
+        }
+
+        .splash-text strong {
+            font-weight: 700;
+            display: block;
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 2. 登录/注册界面样式 */
+        #authScreen {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none; /* 默认隐藏，由 JS 控制显示 */
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.5s;
+        }
+
+        .auth-box {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 350px;
+            text-align: center;
+        }
+
+        .auth-box input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .auth-box button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+        }
+
+        #loginBtn {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        #registerBtn {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        /* 3. 主应用容器样式 */
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-color);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            opacity: 0; /* 默认隐藏 */
+            transition: opacity 0.5s;
+            position: absolute; /* 确保它不会影响开幕界面的布局 */
+            top: 40px;
+        }
+
+        /* 登录成功后显示主容器，并恢复 body 的布局 */
+        body.logged-in .container {
+            opacity: 1;
+        }
+        body.logged-in {
+             align-items: flex-start;
+             padding-top: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+        }
+
+        /* 4. 音乐播放器样式 */
+        .music-player {
+            background: #f1f3f4;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .music-player audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* 5. To-Do List 样式 (继承自 V3) */
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap; 
+        }
+
+        #taskInput {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        #dueDateInput {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        #addButton {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .batch-controls {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+        
+        #clearCompletedBtn {
+            background-color: var(--warning-color);
+            color: #333;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 0 5px;
+        }
+        
+        .filter-btn {
+            background: none;
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 6px;
+            margin-left: 5px;
+            transition: all 0.2s;
+        }
+
+        .filter-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .task-count {
+            font-size: 14px;
+            color: #666;
+        }
+
+        #taskList {
+            list-style: none;
+            padding: 0;
+        }
+
+        #taskList li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #fcfcfc;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #taskList li.completed {
+            background: #e9f5e9;
+            color: #aaa;
+            opacity: 0.7;
+        }
+
+        #taskList li.completed .task-text {
+            text-decoration: line-through;
+        }
+
+        .task-content {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .due-date {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .due-date.expired {
+            color: var(--secondary-color); 
+            font-weight: bold;
+        }
+        
+        #taskList li input.edit-input {
+            display: none;
+            width: 95%;
+            border: 1px solid var(--primary-color);
+            padding: 5px;
+            border-radius: 4px;
+            margin: -5px 0; 
+        }
+
+        #taskList li.editing input.edit-input {
+            display: block;
+        }
+
+        #taskList li.editing .task-text {
+            display: none;
+        }
+
+        .delete-btn {
+            color: var(--secondary-color);
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.3s;
+            margin-left: 15px;
+        }
+
+        .delete-btn:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="splashScreen">
+        <div class="splash-text">
+            <strong>To-do List</strong>
+            <p>By TerryGao & Gemini</p>
+        </div>
+    </div>
+
+    <div id="authScreen">
+        <div class="auth-box">
+            <h2>本地用户登录/注册</h2>
+            <p style="color:#dc3545; font-size:12px;">* 注意：这是本地模拟账号，数据仅保存在浏览器 Local Storage 中。</p>
+            <input type="text" id="authUsername" placeholder="用户名">
+            <input type="password" id="authPassword" placeholder="密码">
+            <button id="loginBtn">登录</button>
+            <button id="registerBtn">创建新账号 (Local)</button>
+        </div>
+    </div>
+
+
+    <div class="container" id="mainContainer">
+        <h1>任务管理器 ✨</h1>
+
+        <div class="music-player">
+            <h3>学习伴侣 🎧</h3>
+            <input type="file" id="musicFile" accept="audio/*">
+            <audio id="audioPlayer" controls></audio>
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="taskInput" placeholder="请输入新任务..." required>
+            <input type="date" id="dueDateInput" title="可选：设置截止日期">
+            <button id="addButton">添加</button>
+        </div>
+        
+        <div class="batch-controls">
+            <button id="clearCompletedBtn">清除已完成任务</button>
+        </div>
+        
+        <div class="controls">
+            <span class="task-count" id="pendingTaskCount">当前待办：0 个</span>
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">全部</button>
+                <button class="filter-btn" data-filter="pending">待办</button>
+                <button class="filter-btn" data-filter="completed">已完成</button>
+            </div>
+        </div>
+        
+        <ul id="taskList">
+        </ul>
+    </div>
+    
+    <script>
+        // --- 💡 JavaScript 核心逻辑 ---
+
+        // DOM 元素获取
+        const splashScreen = document.getElementById('splashScreen');
+        const authScreen = document.getElementById('authScreen');
+        const mainContainer = document.getElementById('mainContainer');
+        const authUsername = document.getElementById('authUsername');
+        const authPassword = document.getElementById('authPassword');
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const musicFile = document.getElementById('musicFile');
+        const audioPlayer = document.getElementById('audioPlayer');
+        
+        const taskInput = document.getElementById('taskInput');
+        const dueDateInput = document.getElementById('dueDateInput');
+        const addButton = document.getElementById('addButton');
+        const taskList = document.getElementById('taskList');
+        const pendingTaskCount = document.getElementById('pendingTaskCount');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+
+        let currentFilter = 'all'; 
+        let currentUserName = '';
+
+        // --- 初始化流程 ---
+
+        // 1. 开幕动画
+        setTimeout(() => {
+            splashScreen.style.opacity = '0';
+            document.body.style.overflow = 'auto'; 
+            setTimeout(() => {
+                splashScreen.style.display = 'none';
+                initApp(); 
+            }, 1000);
+        }, 3000); 
+
+        function initApp() {
+            // 显示登录界面
+            authScreen.style.display = 'flex';
+            
+            // 绑定事件
+            loginBtn.addEventListener('click', handleLogin);
+            registerBtn.addEventListener('click', handleRegister);
+            musicFile.addEventListener('change', handleMusicUpload);
+
+            addButton.addEventListener('click', addTask);
+            taskInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') addTask();
+            });
+
+            taskList.addEventListener('click', handleTaskActions);
+            taskList.addEventListener('dblclick', handleEditTask);
+
+            filterButtons.forEach(button => {
+                button.addEventListener('click', handleFilterChange);
+            });
+
+            clearCompletedBtn.addEventListener('click', clearCompletedTasks);
+
+            setInterval(checkDueDates, 60000); // 1分钟检查一次截止日期
+        }
+
+        // --- 登录/注册模块 (Local Storage 模拟) ---
+
+        function handleLogin() {
+            const user = authUsername.value.trim();
+            const pass = authPassword.value;
+            const storedUser = JSON.parse(localStorage.getItem('todoUser'));
+
+            if (storedUser && storedUser.username === user && storedUser.password === pass) {
+                currentUserName = user;
+                alert(`欢迎回来，${user}！`);
+                document.body.classList.add('logged-in'); 
+                authScreen.style.opacity = '0';
+                setTimeout(() => {
+                    authScreen.style.display = 'none';
+                    loadTasks(); 
+                }, 500);
+            } else {
+                alert('登录失败：用户名或密码错误，请尝试注册。');
+            }
+        }
+
+        function handleRegister() {
+            const user = authUsername.value.trim();
+            const pass = authPassword.value;
+
+            if (user === '' || pass.length < 3) {
+                alert('用户名和密码不能为空，密码至少3位。');
+                return;
+            }
+            if (localStorage.getItem('todoUser')) {
+                 alert('本地已存在用户，请直接登录。');
+                 return;
+            }
+
+            const newUser = {
+                username: user,
+                password: pass, 
+                tasks: '' 
+            };
+            localStorage.setItem('todoUser', JSON.stringify(newUser));
+            alert(`账号创建成功，请登录！`);
+            
+            // 自动填充并尝试登录
+            authPassword.value = pass; 
+            handleLogin(); 
+        }
+
+        // --- 音乐播放器模块 ---
+
+        function handleMusicUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const fileURL = URL.createObjectURL(file);
+                audioPlayer.src = fileURL;
+                audioPlayer.play();
+            }
+        }
+
+        // --- 核心任务管理函数（V3 增强功能） ---
+
+        function handleTaskActions(e) {
+            const target = e.target;
+            const listItem = target.closest('li');
+            if (!listItem) return;
+
+            if (target.classList.contains('delete-btn')) {
+                listItem.remove();
+            } else if (!listItem.classList.contains('editing') && !target.classList.contains('edit-input')) {
+                listItem.classList.toggle('completed');
+                checkDueDates();
+            }
+            
+            saveTasks();
+            updateTaskCount();
+            applyFilter();
+        }
+
+        function handleEditTask(e) {
+            const listItem = e.target.closest('li');
+            if (!listItem || listItem.classList.contains('completed')) return; 
+
+            if (e.target.classList.contains('task-text') || e.target.classList.contains('task-content')) {
+                enterEditMode(listItem);
+            }
+        }
+
+        function handleFilterChange(e) {
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+
+            currentFilter = e.target.dataset.filter;
+            applyFilter();
+        }
+
+        function clearCompletedTasks() {
+            const completedTasks = taskList.querySelectorAll('li.completed');
+            if (completedTasks.length === 0) {
+                alert('没有已完成的任务可清除。');
+                return;
+            }
+            if (confirm(`确定要清除所有 ${completedTasks.length} 个已完成的任务吗？`)) {
+                completedTasks.forEach(task => task.remove());
+                saveTasks();
+                updateTaskCount();
+            }
+        }
+
+
+        function addTask() {
+            const taskText = taskInput.value.trim();
+            const dueDate = dueDateInput.value; 
+
+            if (taskText === '') {
+                taskInput.focus();
+                return;
+            }
+
+            const listItem = document.createElement('li');
+            
+            const taskContent = document.createElement('div');
+            taskContent.classList.add('task-content');
+
+            const textSpan = document.createElement('span');
+            textSpan.textContent = taskText;
+            textSpan.classList.add('task-text');
+
+            const editInput = document.createElement('input');
+            editInput.type = 'text';
+            editInput.value = taskText;
+            editInput.classList.add('edit-input');
+            editInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') exitEditMode(listItem, editInput.value);
+            });
+
+            const dateSpan = document.createElement('span');
+            dateSpan.classList.add('due-date');
+            dateSpan.dataset.dueDate = dueDate; 
+            if (dueDate) {
+                dateSpan.textContent = `截止：${formatDateDisplay(dueDate)}`;
+            }
+
+            taskContent.appendChild(textSpan);
+            taskContent.appendChild(editInput);
+            if (dueDate) {
+                taskContent.appendChild(dateSpan);
+            }
+
+            const deleteBtn = document.createElement('span');
+            deleteBtn.innerHTML = '&#x2715;';
+            deleteBtn.classList.add('delete-btn');
+
+            listItem.appendChild(taskContent);
+            listItem.appendChild(deleteBtn);
+            taskList.appendChild(listItem);
+
+            taskInput.value = '';
+            dueDateInput.value = ''; 
+            taskInput.focus();
+
+            checkDueDates(); 
+            saveTasks();
+            updateTaskCount();
+            applyFilter(); 
+        }
+
+        function enterEditMode(listItem) {
+            listItem.classList.add('editing');
+            const editInput = listItem.querySelector('.edit-input');
+            editInput.focus();
+            
+            editInput.onblur = () => {
+                setTimeout(() => {
+                    exitEditMode(listItem, editInput.value);
+                }, 100); 
+            };
+        }
+
+        function exitEditMode(listItem, newText) {
+            listItem.classList.remove('editing');
+            const textSpan = listItem.querySelector('.task-text');
+            const editInput = listItem.querySelector('.edit-input');
+            const trimmedText = newText.trim();
+            
+            if (trimmedText) {
+                textSpan.textContent = trimmedText;
+                editInput.value = trimmedText;
+            } else {
+                editInput.value = textSpan.textContent; 
+            }
+            saveTasks();
+        }
+
+        // --- 工具和持久化函数 ---
+
+        function checkDueDates() {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0); 
+
+            taskList.querySelectorAll('li').forEach(listItem => {
+                const dateSpan = listItem.querySelector('.due-date');
+                if (dateSpan) {
+                    const dueDateString = dateSpan.dataset.dueDate;
+                    if (dueDateString) {
+                        const dueDate = new Date(dueDateString);
+                        dueDate.setHours(0, 0, 0, 0); 
+                        
+                        if (listItem.classList.contains('completed')) {
+                            dateSpan.classList.remove('expired');
+                            dateSpan.textContent = `截止：${formatDateDisplay(dueDateString)}`;
+                        } 
+                        else if (dueDate < now) { 
+                            dateSpan.classList.add('expired');
+                            dateSpan.textContent = `截止：${formatDateDisplay(dueDateString)} (已过期)`;
+                        } else {
+                            dateSpan.classList.remove('expired');
+                            dateSpan.textContent = `截止：${formatDateDisplay(dueDateString)}`;
+                        }
+                    }
+                }
+            });
+        }
+
+        function formatDateDisplay(dateString) {
+            const date = new Date(dateString);
+            return `${date.getMonth() + 1}月${date.getDate()}日`;
+        }
+
+        function updateTaskCount() {
+            const pendingTasks = taskList.querySelectorAll('li:not(.completed)').length;
+            pendingTaskCount.textContent = `当前待办：${pendingTasks} 个`;
+        }
+
+        function applyFilter() {
+            const tasks = taskList.querySelectorAll('li');
+            tasks.forEach(task => {
+                const isCompleted = task.classList.contains('completed');
+                let shouldShow = true;
+
+                if (currentFilter === 'pending' && isCompleted) {
+                    shouldShow = false;
+                } else if (currentFilter === 'completed' && !isCompleted) {
+                    shouldShow = false;
+                }
+                
+                task.style.display = shouldShow ? 'flex' : 'none';
+            });
+        }
+
+        function saveTasks() {
+            const storedUser = JSON.parse(localStorage.getItem('todoUser'));
+            if (!storedUser) return;
+
+            storedUser.tasks = taskList.innerHTML; 
+            localStorage.setItem('todoUser', JSON.stringify(storedUser));
+        }
+
+        function loadTasks() {
+            const storedUser = JSON.parse(localStorage.getItem('todoUser'));
+            if (!storedUser || storedUser.username !== currentUserName) return;
+
+            taskList.innerHTML = storedUser.tasks || ''; 
+            checkDueDates();
+            updateTaskCount();
+        }
+    </script>
+</body>
+</html>
